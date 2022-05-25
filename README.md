@@ -1,48 +1,47 @@
 # gh-proxy
 
 ## 简介
+基于项目：
+- [https://github.com/hunshcn/gh-proxy](https://github.com/hunshcn/gh-proxy)
 
-github release、archive以及项目文件的加速项目，支持clone，有Cloudflare Workers无服务器版本以及Python版本
+> 基于的是早期版本，可能和源项目有些不一样。
+
+更改内容：
+- 移除Docker部署、Python部署，只保留Cloudfare Worker部署
+- 修改为可自定义镜像地址，方便自定义
+
 
 ## 演示
 
-[https://gh.api.99988866.xyz/](https://gh.api.99988866.xyz/)
+[https://tool.mintimate.cn/gh](https://tool.mintimate.cn/gh)
 
 演示站为公共服务，如有大规模使用需求请自行部署，演示站有点不堪重负
 
 ![imagea272c95887343279.png](https://img.maocdn.cn/img/2021/04/24/imagea272c95887343279.png)
 
-当然也欢迎[捐赠](#捐赠)以支持作者
-
-## python版本和cf worker版本差异
-
-- python版本支持进行文件大小限制，超过设定返回原地址 [issue #8](https://github.com/hunshcn/gh-proxy/issues/8)
-
-- python版本支持特定user/repo 封禁/白名单 以及passby [issue #41](https://github.com/hunshcn/gh-proxy/issues/41)
 
 ## 使用
 
-直接在copy出来的url前加`https://gh.api.99988866.xyz/`即可
+直接在copy出来的url前加`https://tool.mintimate.cn/gh/`即可。
 
-也可以直接访问，在input输入
+如果是自己搭建的，一般为`https://**.workers.dev/`，将这个追加到需要加速的GitHub连接前即可。
 
-***大量使用请自行部署，以上域名仅为演示使用。***
 
 以下都是合法输入（仅示例，文件不存在）：
 
-- 分支源码：https://github.com/hunshcn/project/archive/master.zip
+- 分支源码：https://github.com/Mintimate/project/archive/master.zip
 
-- release源码：https://github.com/hunshcn/project/archive/v0.1.0.tar.gz
+- release源码：https://github.com/Mintimate/project/archive/v0.1.0.tar.gz
 
-- release文件：https://github.com/hunshcn/project/releases/download/v0.1.0/example.zip
+- release文件：https://github.com/Mintimate/project/releases/download/v0.1.0/example.zip
 
-- 分支文件：https://github.com/hunshcn/project/blob/master/filename
+- 分支文件：https://github.com/Mintimate/project/blob/master/filename
 
-- commit文件：https://github.com/hunshcn/project/blob/1111111111111111111111111111/filename
+- commit文件：https://github.com/Mintimate/project/blob/1111111111111111111111111111/filename
 
-- gist：https://gist.githubusercontent.com/cielpy/351557e6e465c12986419ac5a4dd2568/raw/cmd.py
+- gist：https://gist.githubusercontent.com/Mintimate/351557e6e465c12986419ac5a4dd2568/raw/cmd.py
 
-## cf worker版本部署
+## 部署
 
 首页：https://workers.cloudflare.com
 
@@ -56,34 +55,13 @@ github release、archive以及项目文件的加速项目，支持clone，有Clo
 
 `PREFIX`是前缀，默认（根路径情况为"/"），如果自定义路由为example.com/gh/*，请将PREFIX改为 '/gh/'，注意，少一个杠都会错！
 
-## Python版本部署
 
-### Docker部署
-
-```
-docker run -d --name="gh-proxy-py" \
-  -p 0.0.0.0:80:80 \
-  --restart=always \
-  hunsh/gh-proxy-py:latest
-```
-
-第一个80是你要暴露出去的端口
-
-### 直接部署
-
-安装依赖（请使用python3）
-
-```pip install flask requests```
-
-按需求修改`app/main.py`的前几项配置
-
-### 注意
+## 注意
 
 python版本的机器如果无法正常访问github.io会启动报错，请自行修改静态文件url
 
 workers版本默认配置下项目文件会走jsDelivr，如需走服务器，修改配置即可
 
-python版本默认走服务器（2021.3.27更新）
 
 ## Cloudflare Workers计费
 
@@ -98,15 +76,3 @@ python版本默认走服务器（2021.3.27更新）
 * 2020.03.23 新增了clone的支持
 * 2020.03.22 初始版本
 
-## 链接
-
-[我的博客](https://hunsh.net)
-
-## 参考
-
-[jsproxy](https://github.com/EtherDream/jsproxy/)
-
-## 捐赠
-
-![wx.png](https://img.maocdn.cn/img/2021/04/24/image.md.png)
-![ali.png](https://www.helloimg.com/images/2021/04/24/BK9vmb.md.png)
