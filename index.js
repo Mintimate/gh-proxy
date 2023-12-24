@@ -35,7 +35,9 @@ const MirrorHost = {
 	cloneMirrorHost: 'https://hub.fastgit.xyz/',
 }
 
-/** @type {RequestInit} */
+const whiteList = [] // 白名单，路径里面有包含字符的才会通过，e.g. ['/username/']
+
+/** @type {ResponseInit} */
 const PREFLIGHT_INIT = {
     status: 204,
     headers: new Headers({
@@ -44,6 +46,14 @@ const PREFLIGHT_INIT = {
         'access-control-max-age': '1728000',
     }),
 }
+
+
+const exp1 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/(?:releases|archive)\/.*$/i
+const exp2 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/(?:blob|raw)\/.*$/i
+const exp3 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/(?:info|git-).*$/i
+const exp4 = /^(?:https?:\/\/)?raw\.(?:githubusercontent|github)\.com\/.+?\/.+?\/.+?\/.+$/i
+const exp5 = /^(?:https?:\/\/)?gist\.(?:githubusercontent|github)\.com\/.+?\/.+?\/.+$/i
+const exp6 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/tags.*$/i
 
 /**
  * @param {any} body
@@ -75,6 +85,15 @@ addEventListener('fetch', e => {
 })
 
 
+function checkUrl(u) {
+    for (let i of [exp1, exp2, exp3, exp4, exp5, exp6]) {
+        if (u.search(i) === 0) {
+            return true
+        }
+    }
+    return false
+}
+
 /**
  * @param {FetchEvent} e
  */
@@ -88,24 +107,16 @@ async function fetchHandler(e) {
     }
     // cfworker 会把路径中的 `//` 合并成 `/`
     path = urlObj.href.substr(urlObj.origin.length + PREFIX.length).replace(/^https?:\/+/, 'https://')
-    const exp1 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/(?:releases|archive|suites)\/.*$/i
-    const exp2 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/(?:blob|raw)\/.*$/i
-    const exp3 = /^(?:https?:\/\/)?github\.com\/.+?\/.+?\/(?:info|git-).*$/i
-    const exp4 = /^(?:https?:\/\/)?raw\.(?:githubusercontent|github)\.com\/.+?\/.+?\/.+?\/.+$/i
-    const exp5 = /^(?:https?:\/\/)?gist\.(?:githubusercontent|github)\.com\/.+?\/.+?\/.+$/i
-    if (path.search(exp1) === 0 || path.search(exp5) === 0 || !Config.cloneMirror && (path.search(exp3) === 0 || path.search(exp4) === 0)) {
+    if (path.search(exp1) === 0 || path.search(exp5) === 0 || path.search(exp6) === 0 || path.search(exp3) === 0 || path.search(exp4) === 0) {
         return httpHandler(req, path)
     } else if (path.search(exp2) === 0) {
         if (Config.staticFile){
             const newUrl = path.replace('/blob/', '@').replace(/^(?:https?:\/\/)?github\.com/, MirrorHost.staticFileHost)
             return Response.redirect(newUrl, 302)
-        }else{
+        } else {
             path = path.replace('/blob/', '/raw/')
             return httpHandler(req, path)
         }
-    } else if (path.search(exp3) === 0) {
-        const newUrl = path.replace(/^(?:https?:\/\/)?github\.com/, MirrorHost.cloneMirrorHost)
-        return Response.redirect(newUrl, 302)
     } else if (path.search(exp4) === 0) {
         const newUrl = path.replace(/(?<=com\/.+?\/.+?)\/(.+?\/)/, '@$1').replace(/^(?:https?:\/\/)?raw\.(?:githubusercontent|github)\.com/, MirrorHost.staticFileHost)
         return Response.redirect(newUrl, 302)
@@ -129,11 +140,19 @@ function httpHandler(req, pathname) {
         return new Response(null, PREFLIGHT_INIT)
     }
 
-    let rawLen = ''
-
     const reqHdrNew = new Headers(reqHdrRaw)
 
     let urlStr = pathname
+    let flag = !Boolean(whiteList.length)
+    for (let i of whiteList) {
+        if (urlStr.includes(i)) {
+            flag = true
+            break
+        }
+    }
+    if (!flag) {
+        return new Response("blocked", {status: 403})
+    }
     if (urlStr.startsWith('github')) {
         urlStr = 'https://' + urlStr
     }
@@ -143,10 +162,10 @@ function httpHandler(req, pathname) {
     const reqInit = {
         method: req.method,
         headers: reqHdrNew,
-        redirect: 'follow',
+        redirect: 'manual',
         body: req.body
     }
-    return proxy(urlObj, reqInit, rawLen, 0)
+    return proxy(urlObj, reqInit)
 }
 
 
@@ -155,24 +174,22 @@ function httpHandler(req, pathname) {
  * @param {URL} urlObj
  * @param {RequestInit} reqInit
  */
-async function proxy(urlObj, reqInit, rawLen) {
+async function proxy(urlObj, reqInit) {
     const res = await fetch(urlObj.href, reqInit)
     const resHdrOld = res.headers
     const resHdrNew = new Headers(resHdrOld)
 
-    // verify
-    if (rawLen) {
-        const newLen = resHdrOld.get('content-length') || ''
-        const badLen = (rawLen !== newLen)
+    const status = res.status
 
-        if (badLen) {
-            return makeRes(res.body, 400, {
-                '--error': `bad len: ${newLen}, except: ${rawLen}`,
-                'access-control-expose-headers': '--error',
-            })
+    if (resHdrNew.has('location')) {
+        let _location = resHdrNew.get('location')
+        if (checkUrl(_location))
+            resHdrNew.set('location', PREFIX + _location)
+        else {
+            reqInit.redirect = 'follow'
+            return proxy(newUrl(_location), reqInit)
         }
     }
-    const status = res.status
     resHdrNew.set('access-control-expose-headers', '*')
     resHdrNew.set('access-control-allow-origin', '*')
 
